@@ -26,8 +26,9 @@ class TestMyOneTimeTask(TaskTestCase):
 
     def test_feature1(self):
         # Create a BattleReport object
-        self.set_image('tests/images/main.png')
+        self.set_image('tests/images/main2.png')
         feature = self.task.test_find_one_feature()
+        self.task.log_info(f'结果是 {feature}')
         self.assertIsNone(feature)
 
     def test_feature2(self):
