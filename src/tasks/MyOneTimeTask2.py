@@ -16,86 +16,118 @@ class MyOneTimeTask2(MyBaseTask):
         self.default_config.update({
             '活动赛的类型': "旧比赛",
             '挑战次数': 0, #0代表无限次
+            "挑战赛女孩1": "环",
+            "挑战赛女孩2": "香迪"
         })
         self.config_type["活动赛的类型"] = {'type': "drop_down",
                                       'options': ['旧比赛', '新比赛']}
-
-    def run(self):
-        self.log_info('活动开始运行!', notify=True)
         
+        girls = ['霞', '绫音', '瞳', '心', 
+                '海莲娜', '玛莉', '红叶', '穗香',
+                '女天狗', '海咲', '露娜', '环',
+                '丽凤', '菲欧娜', '凪咲', '神无',
+                '莫妮卡', '小百合', '派蒂', '筑紫',
+                '萝贝莉娅', '七海', '伊莉丝', '小春',
+                '蒂娜', '艾米', '香迪', '千乃', '雫', 
+                '玲夏', '梅格']
+        self.config_type["挑战赛女孩1"] = {'type': "drop_down",
+                                      'options': girls}
+        self.config_type["挑战赛女孩2"] = {'type': "drop_down",
+                                      'options': girls}
+
+    def run(self): 
+        # 获取挑战赛的类型
         if self.config.get("活动赛的类型", "旧比赛") == "新比赛":
             targetTxt = "NEW" # 查找新比赛
         else:  
             targetTxt = re.compile("一次比赛") # 查找上一次比赛
         
+        # 获取挑战赛的次数
         if self.config.get("挑战次数", 0) == 0:
             chanlenge_times = None
         else:
             chanlenge_times = self.config.get("挑战次数", 0)
-        # 多次检测的中间区域
-        centerBox = self.box_of_screen(0.25, 0.12, 0.75, 0.99, name="center_box", hcenter=True)
 
+        # 获取挑战赛女孩人选
+        girl1 = self.config.get("挑战赛女孩1", "环")
+        girl2 = self.config.get("挑战赛女孩2", "香迪")
+        panel_girls = ['环', '香迪']# 写真已收集完成的女孩
+        self.skip_detect_gravure = False #是否跳过写真完成检测的开关，默认为False，即不跳过
+        if girl1 in panel_girls and girl2 in panel_girls:
+            self.skip_detect_gravure = True #如果两个女孩的写真都已收集完成，则跳过写真完成检测
+
+        # Box集合
+        self.boxSet = {
+            "center_box": self.box_of_screen(0.25, 0.12, 0.75, 0.99, name="center_box", hcenter=True),
+            "challenge_box": self.box_of_screen(0.58, 0.16, 1, 1, name="challenge_box", hcenter=True),
+            "record_box": self.box_of_screen(0.4, 0.88, 0.6, 0.98, name="record_box", hcenter=True),
+            "start_box": self.box_of_screen(0.74, 0.88, 0.94, 0.99, name="start_box", hcenter=True),
+            "ok_back_box": self.box_of_screen(0.38, 0.76, 0.60, 0.91, name="ok_back_box", hcenter=True),
+            "text_center_box": self.box_of_screen(0.34, 0.23, 0.67, 0.35, name="text_center_box", hcenter=True),
+            "coin_box": self.box_of_screen(0.1, 0.25, 0.2, 0.3, name="coin_box", hcenter=True)
+        }
+
+        self.log_info('活动开始运行!', notify=True)
         while True:
             cur_times = 0
-            challengeBox = self.box_of_screen(0.58, 0.16, 1, 1, name="challenge_box", hcenter=True)
-            target = self.wait_ocr(box=challengeBox, match=targetTxt, log=True,time_out=30, settle_time = 1) 
-            
+            # 查找目标比赛
+            target = self.wait_ocr(box=self.boxSet["challenge_box"], match=targetTxt, log=True,time_out=20, settle_time = 1) 
             # 判空检查 (非常重要！)
             if not target:
                 self.log_info("未找到上一次挑战赛", notify=True)
                 return #直接结束本次流程
-            # 获取目标框内随机坐标点
             x, y = self.point_with_variance(target, offsetX=250)
-
-            # 点击目标框
             self.click(x, y)
 
             # 查找到开始按钮才继续，最长等10秒
-            target2 = self.wait_feature('btn_start', time_out=10) #等待开始按钮出现，最长等10秒
+            target2 = self.wait_feature('btn_start', time_out=10, box=self.boxSet["start_box"])
             # 判空检查 (非常重要！)
             if not target2:
                 self.log_info("未找到开始按钮", notify=True)
                 return #直接结束本次流程
-                
-            # 获取挑战按钮框内随机坐标点
             x2, y2 = self.point_with_variance(target2)
-
-            self.move(x2, y2) #移动到目标框内随机坐标点
-            # 点击目标框，点击事件需要添加一定的延迟时间
+            self.move(x2, y2) #鼠标移动到开始按钮框
             self.click(x2, y2)
             self.sleep(2) #等待2秒，确保界面元素加载完成
-            self.detect_refresher(centerBox) #检测体力恢复
 
-            self.move(x2, y2) #移动到目标框内随机坐标点
-            # 点击目标框，点击事件需要添加一定的延迟时间
+             #检测体力恢复
+            self.detect_refresher(self.boxSet["center_box"])
+
+            self.move(x2, y2) #鼠标移动到开始按钮框
             self.click(x2, y2)
 
-            # 等待比赛记录出现才继续，最长等120秒
-            target3 = self.wait_ocr(match='比赛记录', time_out=120) #等待开始按钮出现，最长等10秒
+            # # 等待比赛记录出现才继续，最长等60秒
+            # recordBox = self.boxSet["record_box"]
+            # target3 = self.wait_ocr(match='比赛记录', time_out=60, box=recordBox) #等待开始按钮出现，最长等10秒
+            recordBox = self.box_of_screen(0.4, 0.54, 0.54, 0.67, name="record_box", hcenter=True)
+            target3 = self.wait_ocr(match='最高分', time_out=60, box=recordBox, settle_time = 1) #等待开始按钮出现，最长等10秒
+
             # 判空检查 (非常重要！)
             if not target3:
                 self.log_info("未找到比赛记录", notify=True)
                 return
-            # 获取目标框内随机坐标点
             x3, y3 = self.point_with_variance(target3, offsetX=200)
-            # 点击目标框且等待2秒
+            self.sleep(1)
             self.click(x3, y3)
             self.sleep(1)
-
+            #开始场景检测
             while True :
-                scene = self.detect_scene(centerBox) #检测目前处于哪个界面
+                scene = self.detect_scene(self.boxSet["center_box"]) #检测目前处于哪个界面
                 self.handle_scene(scene)
 
-                if scene == "screen_gravure":
+                if self.skip_detect_gravure and scene == "screen_exp":
+                    self.detect_level_up() #检测人物升级界面
+                    break
+                if not self.skip_detect_gravure and scene == "screen_gravure":
                     self.sleep(2) #因为找写真的场景没有等待，所以这边等待一下更好
-                    self.detect_gravure_completed(centerBox) #检测写真完成场景
+                    self.detect_gravure_completed(self.boxSet["center_box"]) #检测写真完成场景
                     print("检测到写真场景，结束场景检测")
-                    break # 这里才能真正跳出 while
+                    break
                 elif scene == "unknown_screen":
                     self.sleep(2) #等待3秒后再次检测，避免偶尔的识别错误导致过早结束活动, 感觉要多检测几次比较好
-                    if self.detect_scene(centerBox) == "unknown_screen":
+                    if self.detect_scene(self.boxSet["center_box"]) == "unknown_screen":
                         self.sleep(2) #等待3秒后再次检测，避免偶尔的识别错误导致过早结束活动, 感觉要多检测几次比较好
-                        if self.detect_scene(centerBox) == "unknown_screen":
+                        if self.detect_scene(self.boxSet["center_box"]) == "unknown_screen":
                             self.log_info("检测到未知界面，结束活动", notify=True)
                             break #重复检测一次依旧是未知界面则跳出检测
                 
@@ -105,11 +137,18 @@ class MyOneTimeTask2(MyBaseTask):
             if chanlenge_times and cur_times >= chanlenge_times:
                 self.log_info(f'已完成{cur_times}次挑战，达到设定的挑战次数，结束活动', notify=True)
                 break
-            self.sleep(3) #每次挑战完成后等待3秒，避免过于频繁地进行挑战
+            self.sleep(5) #每次挑战完成后等待5秒，避免过于频繁地进行挑战
 
         self.log_info('活动运行完成!', notify=True)
 
-
+    #升级检测
+    def detect_level_up(self):
+        if self.find_text(targetText=re.compile("升级报酬"), area=self.boxSet["text_center_box"]):
+            target = self.ocr(match="确定", box=self.boxSet["ok_back_box"], log=True)
+            x, y = self.point_with_variance(target)
+            self.click(x, y)
+            self.sleep(1) #点击后等待1秒
+            return True
     #写真收集检测
     def detect_gravure_completed(self, searchBox):
         target = self.find_text(targetText=re.compile("稍后观看"), area=searchBox, delay=1) #在指定区域内查找稍后观看的字样，增加了判空检查
@@ -134,25 +173,23 @@ class MyOneTimeTask2(MyBaseTask):
             if True: #根据配置中的条件进行设置，或则后续自动检测
                 x += offsetMax
             self.click(x, y)
-            self.sleep(1) #点击后等待1秒
-            target = self.ocr(match="确定", box=searchBox, log=True)
+            self.sleep(0.5) #点击后等待0.5秒
+            target = self.ocr(match="确定", box=self.boxSet["ok_back_box"], log=True)
             x1, y1 = self.point_with_variance(target)
             self.click(x1, y1)
-            self.sleep(1) #点击后等待1秒
+            self.sleep(0.5) #点击后等待0.5秒
             return True
         else:
             return False
     #场景检测，检测目前处于哪个场景
     def detect_scene(self, searchBox):
-        if self.find_text(targetText='初次达成报酬', area=searchBox):
+        if self.find_text(targetText='初次达成报酬', area=self.boxSet["text_center_box"]):
             return "first_completion_reward"
-        elif self.find_text(targetText='活动报酬', area=searchBox):
+        elif self.find_text(targetText='活动报酬', area=self.boxSet["text_center_box"]):
             return "event_reward"
-        elif self.find_text(targetText='比赛记录', area=searchBox):
-            return "screen_continue"
-        elif self.find_text(targetText=re.compile("升级报酬"), area=searchBox):
-            return "screen_level_up"
-        elif self.find_one('box_gravure', box="bottom_left"):
+        elif self.find_text(targetText='获得扎克币', area=self.boxSet["coin_box"]):
+            return "screen_exp"
+        elif not self.skip_detect_gravure and self.find_one('box_gravure', box="bottom_left"):
             return "screen_gravure"
         else:
             self.screenshot("unknown_screen.png", show_box=True) #保存未知界面的截图以便后续分析
@@ -160,20 +197,17 @@ class MyOneTimeTask2(MyBaseTask):
             return "unknown_screen"
 
     #场景检测后的处理逻辑
-    def handle_scene(self, scene, centerBox = None):
+    def handle_scene(self, scene):
         match scene:
             case "first_completion_reward" | "event_reward":
-                target = self.ocr(match="确定", log=True, box=centerBox)
+                target = self.ocr(match="确定", log=True, box=self.boxSet["ok_back_box"])
                 x, y = self.point_with_variance(target)
                 self.click(x, y)
-            case "screen_continue":
-                target = self.ocr(match="比赛记录", log=True, box="bottom")
-                x, y = self.point_with_variance(target, offsetX=300)
-                self.click(x, y)
-            case "screen_level_up":
-                target = self.ocr(match="确定", log=True, box=centerBox)
-                x, y = self.point_with_variance(target)
-                self.click(x, y)
+            case "screen_exp":
+                # target = self.ocr(match="比赛记录", log=True, box=self.boxSet["record_box"])
+                # x, y = self.point_with_variance(target, offsetX=300)
+                self.move(862, 606)
+                self.click(862, 606)
             case "screen_gravure": #写真场景
                 target = self.find_one('box_gravure', box = "bottom_left") #等待写真场景特征出现，最长等5秒
                 x, y = self.point_with_variance(target)
